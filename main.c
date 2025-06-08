@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
+#include <stdbool.h>
 
 #define TAM 8
 #define NUM_NAVIOS 4
@@ -63,7 +65,8 @@ void popular_campo_inimigo(char campo[TAM][TAM]) {
 /*
 imprime um campo qualquer
 */
-void imprimir_campo(char campo[TAM][TAM]) {
+void imprimir_campo(char campo[TAM][TAM], char legenda[]) {
+    printf("\n%s\n",legenda);
     printf("  ");
     for (int i = 0; i < TAM; i++) printf("%d ", i);
     printf("\n");
@@ -85,7 +88,7 @@ void popular_campo_jogador(char campo[TAM][TAM]) {
     int orientacao, linha, coluna;
 
     printf("\n\nSEU CAMPO\n");
-    imprimir_campo(campo);
+    imprimir_campo(campo,"Jogador");
 
     for (int i = 0; i < 4; i++ ) {
 
@@ -107,7 +110,15 @@ void popular_campo_jogador(char campo[TAM][TAM]) {
 
         posicionar_navio_jogador(campo, linha, coluna, tamanho, orientacao);
         printf("\n\nSEU CAMPO\n");
-        imprimir_campo(campo);
+        imprimir_campo(campo,"Jogador");
+    }
+}
+
+void popular_campo_tentativa(char campo[TAM][TAM]){
+    for(int i=0;i<8;i++){
+        for(int j=0;j<8;j++){
+            campo[i][j] = '~';
+        }
     }
 }
 
@@ -121,20 +132,97 @@ void posicionar_navio_jogador(char campo[TAM][TAM], int linha, int coluna, int t
     }
 }
 
+void atirar_alvo(int linha, int coluna, char campoInimigo[TAM][TAM],char campoTentativa[TAM][TAM], int *counter){
+
+    if(campoInimigo[linha][coluna]=='N'){
+        *counter+=1;
+        campoInimigo[linha][coluna] = '~';
+        printf("\n\n>>Acertou!\n(Acertos: %d)",*counter);
+        campoTentativa[linha][coluna] = 'O';
+        
+    }
+    else {
+        campoTentativa[linha][coluna] = 'X';
+        printf("\n\n>>Errou!\n");
+    }
+}
+
+bool campo_vazio(char campo[TAM][TAM]){
+    for(int i=0; i<TAM;i++){
+        for(int j=0; j<TAM;j++){
+            if(campo[i][j]!='~'){
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool verificar_tentativa(int casa, int campo[64]){
+
+    for(int i=0;i<64;i++){
+        if(campo[i]==casa) return true;
+    }
+    return false;
+}
+
+void turno_inimigo(char campo[TAM][TAM], int *counter){
+    srand(time(NULL));
+    int coordenadas_tentadas[64] = {0}; 
+    int tentativas = 0; 
+    do {
+        int linha = rand() % 8;
+        int coluna = rand() % 8;
+        int casa = 8 * linha + coluna;
+
+        if (!verificar_tentativa(casa, coordenadas_tentadas)) {
+            coordenadas_tentadas[tentativas++] = casa; 
+            if (campo[linha][coluna] == 'N') {
+                *counter +=1;
+                campo[linha][coluna] = 'X';
+                printf("\n\n>> Inimigo acertou! (Acertos: %d)\n",*counter);
+                
+                break;
+            } else {
+                printf("\n\n>> Inimigo errou!\n");
+                break;
+            }
+        }
+    } while (true);
+    
+}
+
 
 int main(void){
     srand(time(NULL));
 
     char campo_inimigo[TAM][TAM];
     popular_campo_inimigo(campo_inimigo);
-    imprimir_campo(campo_inimigo);
 
     char campo_jogador[TAM][TAM];
     popular_campo_jogador(campo_jogador);
-    imprimir_campo(campo_jogador);
 
-    while(1){
+    char campo_tentativa[TAM][TAM];
+    popular_campo_tentativa(campo_tentativa);
 
+    char input[100];
+    int linha;
+    int coluna;
+    int counter_acertos_jogador=0;
+    int counter_acertos_inimigo=0;
+    while(!campo_vazio(campo_inimigo) && !campo_vazio(campo_jogador)){
+
+        printf(">>Insira uma coordenada para atacar (Linha, Coluna, Ex: 3 4)");
+        fgets(input, sizeof input, stdin);
+        sscanf(input, "%d%d",&linha, &coluna);
+        turno_inimigo(campo_jogador,&counter_acertos_inimigo);
+        imprimir_campo(campo_jogador,"Jogador");
+        
+        atirar_alvo(linha,coluna,campo_inimigo,campo_tentativa,&counter_acertos_jogador);
+        imprimir_campo(campo_tentativa,"Tentativas");
     }
+
+    if(campo_vazio(campo_inimigo)) printf("Voce ganhou!!! Parabens!");
+    else printf("O Computador Ganhou!!! Desista dos seus sonhos!");
     
 }
