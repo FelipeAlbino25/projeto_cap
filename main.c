@@ -141,6 +141,9 @@ void atirar_alvo(int linha, int coluna, char campoInimigo[TAM][TAM],char campoTe
         campoTentativa[linha][coluna] = 'O';
         
     }
+    else if(campoTentativa[linha][coluna]=='X' || campoTentativa[linha][coluna] == 'O'){
+        printf("\n\n>>Voce ja tentou esta coordenada!");
+    }
     else {
         campoTentativa[linha][coluna] = 'X';
         printf("\n\n>>Errou!\n");
