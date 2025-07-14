@@ -25,12 +25,26 @@ função que verifica se eu posso posicionar um navio em uma posição
 int pode_posicionar(char campo[TAM][TAM], int x, int y, int tamanho, int orientacao) {
     if (orientacao == 2) { // Horizontal
         if (y + tamanho > TAM) return 0;
-        for (int i = 0; i < tamanho; i++)
+        for (int i = 0; i < tamanho; i++) {
             if (campo[x][y + i] != '~') return 0;
+            // Verifica células adjacentes
+            if (x > 0 && campo[x-1][y+i] != '~') return 0; // acima
+            if (x < TAM-1 && campo[x+1][y+i] != '~') return 0; // abaixo
+        }
+        // Verifica extremidades
+        if (y > 0 && campo[x][y-1] != '~') return 0; // esquerda
+        if (y + tamanho < TAM && campo[x][y+tamanho] != '~') return 0; // direita
     } else { // Vertical
         if (x + tamanho > TAM) return 0;
-        for (int i = 0; i < tamanho; i++)
+        for (int i = 0; i < tamanho; i++) {
             if (campo[x + i][y] != '~') return 0;
+            // Verifica células adjacentes
+            if (y > 0 && campo[x+i][y-1] != '~') return 0; // esquerda
+            if (y < TAM-1 && campo[x+i][y+1] != '~') return 0; // direita
+        }
+        // Verifica extremidades
+        if (x > 0 && campo[x-1][y] != '~') return 0; // acima
+        if (x + tamanho < TAM && campo[x+tamanho][y] != '~') return 0; // abaixo
     }
     return 1;
 }
@@ -66,18 +80,29 @@ void popular_campo_inimigo(char campo[TAM][TAM]) {
 imprime um campo qualquer
 */
 void imprimir_campo(char campo[TAM][TAM], char legenda[]) {
-    printf("\n%s\n",legenda);
-    printf("  ");
-    for (int i = 0; i < TAM; i++) printf("%d ", i);
-    printf("\n");
-
+    printf("\n+----------------------------+\n");
+    printf(" %-27s \n", legenda);
+    printf("+---+------------------------+\n");
+    printf("|   | 0  1  2  3  4  5  6  7 |\n");
+    printf("+---+------------------------+\n");
+    
     for (int i = 0; i < TAM; i++) {
-        printf("%d ", i);
+        printf("| %d |", i);
         for (int j = 0; j < TAM; j++) {
-            printf("%c ", campo[i][j]);
+            switch(campo[i][j]) {
+                case '~': printf("\033[34m ~ \033[0m"); break;  // Água
+                case 'N': printf("\033[33m N \033[0m"); break;  // Navio
+                case 'O': printf("\033[31m X \033[0m"); break;  // Seu acerto
+                case 'X': printf("\033[37m o \033[0m"); break;  // Seu erro (campo tentativas)
+                case 'A': printf("\033[31m X \033[0m"); break;  // Acerto inimigo
+                case 'E': printf("\033[37m o \033[0m"); break;  // Erro inimigo
+                default: printf(" %c ", campo[i][j]);
+            }
         }
-        printf("\n");
+        printf("|\n");
+        if (i < TAM-1) printf("|   |                        |\n");
     }
+    printf("+---+------------------------+\n");
 }
 
 void popular_campo_jogador(char campo[TAM][TAM]) {
@@ -132,21 +157,37 @@ void posicionar_navio_jogador(char campo[TAM][TAM], int linha, int coluna, int t
     }
 }
 
-void atirar_alvo(int linha, int coluna, char campoInimigo[TAM][TAM],char campoTentativa[TAM][TAM], int *counter){
+void atirar_alvo(int linha, int coluna, char campoInimigo[TAM][TAM], char campoTentativa[TAM][TAM], int *counter) {
+    if(linha < 0 || linha >= TAM || coluna < 0 || coluna >= TAM) {
+        printf("\n\n>> Coordenadas inválidas! Use valores entre 0 e %d.\n", TAM-1);
+        return;
+    }
 
-    if(campoInimigo[linha][coluna]=='N'){
-        *counter+=1;
+    if(campoTentativa[linha][coluna] == 'X' || campoTentativa[linha][coluna] == 'O') {
+        printf("\n\n>> Você já tentou esta coordenada (%d,%d)! Tente outra.\n", linha, coluna);
+        return;
+    }
+
+    if(campoInimigo[linha][coluna] == 'N') {
+        *counter += 1;
         campoInimigo[linha][coluna] = '~';
-        printf("\n\n>>Acertou!\n(Acertos: %d)",*counter);
         campoTentativa[linha][coluna] = 'O';
         
-    }
-    else if(campoTentativa[linha][coluna]=='X' || campoTentativa[linha][coluna] == 'O'){
-        printf("\n\n>>Voce ja tentou esta coordenada!");
-    }
+        // Feedback diferente baseado no tamanho do navio atingido
+        int tamanho_navio = 0;
+        for(int i = 0; i < NUM_NAVIOS; i++) {
+            if(tamanhos_navios[i] <= *counter) {
+                tamanho_navio = tamanhos_navios[i];
+            }
+        }
+        
+        printf("\n\n>> Você acertou um navio inimigo!");
+        printf("\n>> Tamanho estimado do navio: %d", tamanho_navio);
+        printf("\n>> Acertos totais: %d\n", *counter);
+    } 
     else {
         campoTentativa[linha][coluna] = 'X';
-        printf("\n\n>>Errou!\n");
+        printf("\n\n>> Água! Seu tiro em (%d,%d) não acertou nada.\n", linha, coluna);
     }
 }
 
@@ -169,30 +210,72 @@ bool verificar_tentativa(int casa, int campo[64]){
     return false;
 }
 
-void turno_inimigo(char campo[TAM][TAM], int *counter){
-    srand(time(NULL));
-    int coordenadas_tentadas[64] = {0}; 
-    int tentativas = 0; 
-    do {
-        int linha = rand() % 8;
-        int coluna = rand() % 8;
-        int casa = 8 * linha + coluna;
-
-        if (!verificar_tentativa(casa, coordenadas_tentadas)) {
-            coordenadas_tentadas[tentativas++] = casa; 
-            if (campo[linha][coluna] == 'N') {
-                *counter +=1;
-                campo[linha][coluna] = 'X';
-                printf("\n\n>> Inimigo acertou! (Acertos: %d)\n",*counter);
-                
-                break;
-            } else {
-                printf("\n\n>> Inimigo errou!\n");
-                break;
-            }
-        }
-    } while (true);
+void turno_inimigo(char campo[TAM][TAM], int *counter) {
+    static int ultimos_acertos[2][2] = {{-1,-1}, {-1,-1}};
+    static int direcao[2] = {0,0}; // dx, dy
+    static int modo = 0; // 0=aleatório, 1=perseguindo, 2=seguindo linha
     
+    int linha, coluna;
+    
+    // Detecta padrão linear após 2 acertos
+    if (modo == 1 && ultimos_acertos[1][0] != -1) {
+        direcao[0] = ultimos_acertos[1][0] - ultimos_acertos[0][0];
+        direcao[1] = ultimos_acertos[1][1] - ultimos_acertos[0][1];
+        modo = 2;
+    }
+
+    if (modo == 2) { // Modo linha reta
+        linha = ultimos_acertos[1][0] + direcao[0];
+        coluna = ultimos_acertos[1][1] + direcao[1];
+        
+        if (linha < 0 || linha >= TAM || coluna < 0 || coluna >= TAM || 
+            campo[linha][coluna] == 'A' || campo[linha][coluna] == 'E') {
+            modo = 0;
+        }
+    }
+
+    if (modo == 0 || modo == 1) {
+        do {
+            if (modo == 1 && ultimos_acertos[0][0] != -1) {
+                int tentativas[4][2] = {{0,1},{1,0},{0,-1},{-1,0}};
+                int tentativa = rand() % 4;
+                linha = ultimos_acertos[0][0] + tentativas[tentativa][0];
+                coluna = ultimos_acertos[0][1] + tentativas[tentativa][1];
+            } else {
+                linha = rand() % TAM;
+                coluna = rand() % TAM;
+            }
+        } while (linha < 0 || linha >= TAM || coluna < 0 || coluna >= TAM || 
+                campo[linha][coluna] == 'A' || campo[linha][coluna] == 'E');
+    }
+
+    // Executa o ataque
+    if (campo[linha][coluna] == 'N') {
+        *counter += 1;
+        campo[linha][coluna] = 'A';
+        printf("\n>> INIMIGO ACERTOU! (Acertos: %d)\n", *counter);
+
+        // Atualiza histórico
+        if (modo == 0 || modo == 1) {
+            ultimos_acertos[1][0] = ultimos_acertos[0][0];
+            ultimos_acertos[1][1] = ultimos_acertos[0][1];
+            ultimos_acertos[0][0] = linha;
+            ultimos_acertos[0][1] = coluna;
+            modo = 1;
+        } else {
+            ultimos_acertos[1][0] = linha;
+            ultimos_acertos[1][1] = coluna;
+        }
+    } else {
+        campo[linha][coluna] = 'E';
+        printf("\n>> Inimigo errou!\n");
+        
+        if (modo == 2) {
+            modo = 0;
+            ultimos_acertos[0][0] = -1;
+            ultimos_acertos[0][1] = -1;
+        }
+    }
 }
 
 
