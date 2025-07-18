@@ -6,7 +6,6 @@
     Luiz Henrique Simões Silva - 845576
 */
 
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -23,7 +22,7 @@ int tamanhos_navios[NUM_NAVIOS] = {4, 3, 2, 1};
 /*
     Descrição: Função para colocar "água" no campo de navios
     Requer: Uma matriz quadrada de caracteres com dimensões TAM x TAM que será inicializada
-    Assegura: Cada elemento campo[i][j] é atribuído com o valor '~', representando água 
+    Assegura: Cada elemento campo[i][j] é atribuído com o valor '~', representando água
 */
 void inicializar_campo(char campo[TAM][TAM]);
 
@@ -105,6 +104,13 @@ bool verificar_tentativa(int casa, int campo[64]);
 */
 void turno_inimigo(char campo[TAM][TAM], int *contador);
 
+/*
+    Descrição: Implementa a lógica para atualizar a quantidade de vitórias/derrotas cadastradas no arquivo .txt
+    Requer: Arquivo record.txt, resultado do jogo atual (venceu = 1, perdeu = 0)
+    Assegura: Atualizar a situação de vitórias do jogo no arquivo record.txt
+*/
+void atualizar_recorde(int jogador_venceu);
+
 int main(void)
 {
     srand(time(NULL));
@@ -136,9 +142,14 @@ int main(void)
     }
 
     if (campo_vazio(campo_inimigo))
-        printf("Voce ganhou!!! Parabens!");
+    {
+        atualizar_recorde(1);
+    }
+
     else
-        printf("O Computador Ganhou!!! Desista dos seus sonhos!");
+    {
+        atualizar_recorde(0);
+    }
 }
 
 void inicializar_campo(char campo[TAM][TAM])
@@ -152,7 +163,7 @@ int pode_posicionar(char campo[TAM][TAM], int x, int y, int tamanho, int orienta
 {
 
     if (orientacao == HORIZONTAL)
-    { 
+    {
         if (y + tamanho > TAM)
             return 0;
 
@@ -299,7 +310,7 @@ void popular_campo_tentativa(char campo[TAM][TAM])
 void posicionar_navio_jogador(char campo[TAM][TAM], int linha, int coluna, int tamanho, int orientacao)
 {
     if (orientacao == HORIZONTAL)
-    { 
+    {
         for (int i = 0; i < tamanho; i++)
             campo[linha][coluna + i] = 'N';
     }
@@ -400,7 +411,7 @@ void turno_inimigo(char campo[TAM][TAM], int *contador)
         if (linha < 0 || linha >= TAM || coluna < 0 || coluna >= TAM ||
             campo[linha][coluna] == 'A' || campo[linha][coluna] == 'E')
         {
-            modo = 0;   
+            modo = 0;
         }
     }
 
@@ -457,5 +468,50 @@ void turno_inimigo(char campo[TAM][TAM], int *contador)
             ultimos_acertos[0][0] = -1;
             ultimos_acertos[0][1] = -1;
         }
+    }
+}
+
+void atualizar_recorde(int jogador_venceu)
+{
+    int vitorias = 0, derrotas = 0;
+
+    // Tenta abrir o arquivo para leitura
+    FILE *arquivo = fopen("record.txt", "r");
+    if (arquivo != NULL)
+    {
+        char linha[100];
+        while (fgets(linha, sizeof(linha), arquivo))
+        {
+            if (sscanf(linha, "vitorias: %d", &vitorias) == 1)
+                continue;
+            if (sscanf(linha, "derrotas: %d", &derrotas) == 1)
+                continue;
+        }
+        fclose(arquivo);
+    }
+
+    // Atualiza contadores
+    if (jogador_venceu)
+    {
+        vitorias++;
+        printf("Voce ganhou!!! Parabens!\n");
+    }
+    else
+    {
+        derrotas++;
+        printf("O Computador Ganhou!!! Desista dos seus sonhos!\n");
+    }
+
+    // Abre o arquivo para escrita (reescreve o conteúdo)
+    arquivo = fopen("record.txt", "w");
+    if (arquivo != NULL)
+    {
+        fprintf(arquivo, "vitorias: %d\n", vitorias);
+        fprintf(arquivo, "derrotas: %d\n", derrotas);
+        fclose(arquivo);
+    }
+    else
+    {
+        printf("Erro ao salvar recorde.\n");
     }
 }
