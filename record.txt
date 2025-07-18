@@ -1,0 +1,2 @@
+vitorias: 0
+derrotas: 0
